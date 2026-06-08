@@ -34,3 +34,10 @@ export const CardShadow = {
   shadowRadius: 4,
   elevation: 2,
 };
+
+export const theme = {
+  colors: Colors,
+  spacing: Spacing,
+  radius: Radius,
+  shadow: CardShadow,
+};
