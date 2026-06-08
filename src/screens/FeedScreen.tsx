@@ -10,12 +10,12 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Signal, Sentiment } from '../types';
+import { Signal } from '../types';
 import { MOCK_SIGNALS } from '../data/mockSignals';
 import { getSignals } from '../api/client';
 import { loadPreferences } from '../utils/storage';
 import { loadWatchlist, loadWeights, computePersonalScore, DEFAULT_WEIGHTS } from '../utils/watchlist';
-import { DimensionWeights, DimensionScores, WatchlistItem } from '../types';
+import { DimensionWeights, WatchlistItem } from '../types';
 import { getNextPushTime } from '../utils/notifications';
 import { isGuruSource } from '../utils/guruNames';
 import { t } from '../i18n';
@@ -80,18 +80,18 @@ function ClockIcon({ size = 44, color = Colors.neutral }: { size?: number; color
 
 // ── Filter bar ───────────────────────────────────────────────────────────────
 
-type FilterKey = 'all' | Sentiment | 'guru';
+type FilterKey = 'all' | 'guru' | 'institutional' | 'industry' | 'macro' | 'topic';
 
-const FILTER_KEYS: { key: FilterKey; tKey: Parameters<typeof t>[0]; dot: string | null }[] = [
-  { key: 'all',     tKey: 'filter_all',     dot: null },
-  { key: 'bullish', tKey: 'filter_bullish', dot: Colors.bullish },
-  { key: 'bearish', tKey: 'filter_bearish', dot: Colors.bearish },
-  { key: 'mixed',   tKey: 'filter_mixed',   dot: Colors.neutral },
-  { key: 'guru',    tKey: 'filter_guru',    dot: Colors.accentGold },
-  { key: 'neutral', tKey: 'filter_neutral', dot: Colors.neutral },
+const FILTER_KEYS: { key: FilterKey; label: string; dot: string | null }[] = [
+  { key: 'all',          label: '全部', dot: null },
+  { key: 'guru',         label: 'Guru', dot: Colors.accentGold },
+  { key: 'institutional', label: '机构', dot: '#2563EB' },
+  { key: 'industry',     label: '产业', dot: '#16A34A' },
+  { key: 'macro',        label: '宏观', dot: '#7C3AED' },
+  { key: 'topic',        label: '话题', dot: '#EF4444' },
 ];
 
-function FilterBar({ active, onSelect, lang }: { active: FilterKey; onSelect: (k: FilterKey) => void; lang: string }) {
+function FilterBar({ active, onSelect }: { active: FilterKey; onSelect: (k: FilterKey) => void }) {
   return (
     <View style={filterStyles.outerWrap}>
       <ScrollView
@@ -111,7 +111,7 @@ function FilterBar({ active, onSelect, lang }: { active: FilterKey; onSelect: (k
               numberOfLines={1}
               style={[filterStyles.label, active === f.key && filterStyles.labelActive]}
             >
-              {t(f.tKey, lang)}
+              {f.label}
             </Text>
             {f.dot !== null && (
               <View style={[filterStyles.dot, { backgroundColor: f.dot }]} />
@@ -201,10 +201,34 @@ export default function FeedScreen() {
   const [wlTickers,    setWlTickers]    = useState<Set<string>>(new Set());
 
   const filteredSignals = useMemo(() => {
+    const MACRO_KW = ['GDP', 'CPI', 'employment', 'interest rate', 'Fed',
+      '美联储', '就业', '通胀', '利率', '降准', '降息', '货币政策'];
+
+    const isGuru = (s: Signal) => isGuruSource(s.source);
+    const isInstitutional = (s: Signal) =>
+      !isGuru(s) && (
+        s.source.toLowerCase().includes('etf') ||
+        s.source.toLowerCase().includes('fund') ||
+        s.source.toLowerCase().includes('ark')
+      );
+    const isIndustry = (s: Signal) => s.sectors.length > 0 && !isGuru(s);
+    const isMacro = (s: Signal) => MACRO_KW.some(kw => s.headline.includes(kw));
+
     switch (filter) {
-      case 'all':  return signals;
-      case 'guru': return signals.filter(s => isGuruSource(s.source));
-      default:     return signals.filter(s => s.sentiment === filter);
+      case 'all':          return signals;
+      case 'guru':         return signals.filter(isGuru);
+      case 'institutional': return signals.filter(isInstitutional);
+      case 'industry':     return signals.filter(isIndustry);
+      case 'macro':        return signals.filter(isMacro);
+      case 'topic': {
+        const categorized = new Set(
+          signals.filter(s => isGuru(s) || isInstitutional(s) || isMacro(s)).map(s => s.id),
+        );
+        return signals
+          .filter(s => s.relevance >= 8 && !categorized.has(s.id))
+          .sort((a, b) => b.relevance - a.relevance);
+      }
+      default: return signals;
     }
   }, [signals, filter]);
 
@@ -260,7 +284,7 @@ export default function FeedScreen() {
 
       {!loading && (
         <>
-          <FilterBar active={filter} onSelect={setFilter} lang={lang} />
+          <FilterBar active={filter} onSelect={setFilter} />
           <View style={styles.countRow}>
             <Text style={styles.countText}>
               {t('feed_signal_count', lang, { count: filteredSignals.length })}
