@@ -80,7 +80,7 @@ function ClockIcon({ size = 44, color = Colors.neutral }: { size?: number; color
 
 // ── Filter bar ───────────────────────────────────────────────────────────────
 
-type FilterKey = 'all' | 'guru' | 'institutional' | 'industry' | 'macro' | 'topic';
+type FilterKey = 'all' | 'guru' | 'institutional' | 'industry' | 'macro' | 'cross_market';
 
 const FILTER_KEYS: { key: FilterKey; label: string; dot: string | null }[] = [
   { key: 'all',          label: '全部', dot: null },
@@ -88,7 +88,7 @@ const FILTER_KEYS: { key: FilterKey; label: string; dot: string | null }[] = [
   { key: 'institutional', label: '机构', dot: '#2563EB' },
   { key: 'industry',     label: '产业', dot: '#16A34A' },
   { key: 'macro',        label: '宏观', dot: '#7C3AED' },
-  { key: 'topic',        label: '话题', dot: '#EF4444' },
+  { key: 'cross_market', label: '跨市场', dot: '#EF4444' },
 ];
 
 function FilterBar({ active, onSelect }: { active: FilterKey; onSelect: (k: FilterKey) => void }) {
@@ -220,13 +220,13 @@ export default function FeedScreen() {
       case 'institutional': return signals.filter(isInstitutional);
       case 'industry':     return signals.filter(isIndustry);
       case 'macro':        return signals.filter(isMacro);
-      case 'topic': {
-        const categorized = new Set(
-          signals.filter(s => isGuru(s) || isInstitutional(s) || isMacro(s)).map(s => s.id),
+      case 'cross_market': {
+        const CROSS_KW = ['欧洲', '欧元', 'ECB', '英国', '日本', '日元',
+          '汇率', '跨市场', 'European', 'BOJ', 'BOE', '联动', '外溢'];
+        return signals.filter(s =>
+          s.regions.length > 1 ||
+          CROSS_KW.some(kw => s.headline.includes(kw))
         );
-        return signals
-          .filter(s => s.relevance >= 8 && !categorized.has(s.id))
-          .sort((a, b) => b.relevance - a.relevance);
       }
       default: return signals;
     }

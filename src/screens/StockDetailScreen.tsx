@@ -29,6 +29,70 @@ const DEFAULT_WEIGHTS: DimensionWeights = {
   pipeline: 5, capitalFlows: 6, technical: 3,
 }
 
+interface CausalStep {
+  label: string;
+  text: string;
+  color: string;
+}
+
+const CAUSAL_CHAINS: Record<string, CausalStep[]> = {
+  NVDA: [
+    { label: '宏观触发', text: '美联储维持高利率', color: '#2563EB' },
+    { label: '传导机制', text: 'AI算力需求不受利率压制', color: '#0D9488' },
+    { label: '行业影响', text: '半导体/AI硬件 +强烈正向', color: '#D97706' },
+    { label: '公司特征', text: 'NVDA 数据中心收入占比82%，直接受益', color: '#16A34A' },
+  ],
+  AAPL: [
+    { label: '宏观触发', text: '美联储暗示降息时间表', color: '#2563EB' },
+    { label: '传导机制', text: '消费信贷条件改善，终端需求回暖', color: '#0D9488' },
+    { label: '行业影响', text: '消费电子/科技硬件 +温和正向', color: '#D97706' },
+    { label: '公司特征', text: 'AAPL iPhone占收入54%，服务业务高毛利护城河', color: '#16A34A' },
+  ],
+  TSLA: [
+    { label: '宏观触发', text: '欧洲能源政策转型加速', color: '#2563EB' },
+    { label: '传导机制', text: 'EV补贴延续，充电基础设施投入增加', color: '#0D9488' },
+    { label: '行业影响', text: '新能源汽车板块 +中性偏正', color: '#D97706' },
+    { label: '公司特征', text: 'TSLA 欧洲市场份额竞争加剧，利润率承压', color: '#D97706' },
+  ],
+};
+
+const DEFAULT_CAUSAL: CausalStep[] = [
+  { label: '宏观触发', text: '全球利率政策趋于稳定', color: '#2563EB' },
+  { label: '传导机制', text: '资本成本改善，风险资产估值修复', color: '#0D9488' },
+  { label: '行业影响', text: '科技板块整体受益于流动性改善', color: '#D97706' },
+  { label: '公司特征', text: '基本面稳健，与宏观趋势正相关', color: '#16A34A' },
+];
+
+function CausalChain({ ticker }: { ticker: string }) {
+  const steps = CAUSAL_CHAINS[ticker] ?? DEFAULT_CAUSAL;
+  return (
+    <View>
+      {steps.map((step, i) => (
+        <View key={i} style={chainStyles.step}>
+          <View style={chainStyles.left}>
+            <View style={[chainStyles.dot, { backgroundColor: step.color }]} />
+            {i < steps.length - 1 && <View style={chainStyles.line} />}
+          </View>
+          <View style={chainStyles.content}>
+            <Text style={[chainStyles.stepLabel, { color: step.color }]}>{step.label}</Text>
+            <Text style={chainStyles.stepText}>{step.text}</Text>
+          </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+const chainStyles = StyleSheet.create({
+  step: { flexDirection: 'row', minHeight: 52 },
+  left: { width: 24, alignItems: 'center' },
+  dot: { width: 10, height: 10, borderRadius: 5, marginTop: 3 },
+  line: { flex: 1, width: 2, backgroundColor: '#E5E7EB', marginVertical: 2 },
+  content: { flex: 1, paddingLeft: 10, paddingBottom: 12 },
+  stepLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.3, marginBottom: 2 },
+  stepText: { fontSize: 13, color: '#374151', lineHeight: 18 },
+});
+
 const DIM_LABELS: Record<keyof DimensionWeights, string> = {
   news: '消息面',
   financial: '财务面',
@@ -155,6 +219,12 @@ export function StockDetailScreen({ item, onBack }: Props) {
           {(Object.keys(DIM_LABELS) as (keyof DimensionWeights)[]).map(k => (
             <WeightBar key={k} label={DIM_LABELS[k]} value={weights[k]} />
           ))}
+        </View>
+
+        {/* Causal Chain */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>传导链</Text>
+          <CausalChain ticker={item.ticker} />
         </View>
 
         {/* Related signals */}

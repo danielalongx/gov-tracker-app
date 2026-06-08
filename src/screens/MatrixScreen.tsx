@@ -100,6 +100,7 @@ function MatrixCard({
       </View>
 
       {/* Score bar */}
+      <Text style={[styles.scoreLabelSmall, { color }]}>信号力</Text>
       <View style={styles.scoreRow}>
         <View style={styles.barTrack}>
           <View
@@ -148,7 +149,7 @@ export default function MatrixScreen() {
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>矩阵</Text>
-        <Text style={styles.headerSub}>信号热度排名 · 近90天</Text>
+        <Text style={styles.headerSub}>基于传导链的综合评分</Text>
       </View>
 
       {/* Legend */}
@@ -292,6 +293,12 @@ const styles = StyleSheet.create({
   },
   sectorLabel: { fontSize: 10, fontWeight: '600' },
 
+  scoreLabelSmall: {
+    fontSize: 9,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+    marginBottom: 3,
+  },
   scoreRow: {
     flexDirection: 'row',
     alignItems: 'center',

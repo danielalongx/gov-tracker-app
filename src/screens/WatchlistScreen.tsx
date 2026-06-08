@@ -16,9 +16,25 @@ import { WatchlistItem } from '../types';
 import { loadWatchlist, saveWatchlist } from '../utils/watchlist';
 import { POPULAR_STOCKS, StockInfo } from '../data/stockList';
 import DimensionWeightModal from '../components/DimensionWeightModal';
+import { StockDetailScreen } from './StockDetailScreen';
 import { Colors, Spacing, Radius, CardShadow } from '../theme';
 import { t } from '../i18n';
 import { useLanguage } from '../hooks/useLanguage';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getMockForce(ticker: string): { bullish: number; bearish: number } {
+  const code = ticker.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  return { bullish: (code % 4) + 2, bearish: code % 3 };
+}
+
+function withMockData(item: WatchlistItem): WatchlistItem {
+  if (item.mockPrice !== undefined) return item;
+  const s = POPULAR_STOCKS.find(p => p.ticker === item.ticker);
+  return s
+    ? { ...item, mockPrice: s.mockPrice, mockChange: s.mockChange, mockPE: s.mockPE, mockMarketCap: s.mockMarketCap }
+    : item;
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -53,29 +69,52 @@ function StockChip({ stock, added, onToggle }: StockChipProps) {
 
 interface WatchlistCardProps {
   item: WatchlistItem;
+  onPress: () => void;
   onConfigure: () => void;
-  onRemove: () => void;
   lang: string;
 }
 
-function WatchlistCard({ item, onConfigure, lang }: WatchlistCardProps) {
+function WatchlistCard({ item, onPress, onConfigure, lang }: WatchlistCardProps) {
+  const force = getMockForce(item.ticker);
+  const total = force.bullish + force.bearish || 1;
+  const isUp = (item.mockChange ?? 0) >= 0;
+
   return (
-    <View style={[styles.card, CardShadow]}>
-      <View style={styles.cardMain}>
+    <TouchableOpacity style={[styles.card, CardShadow]} onPress={onPress} activeOpacity={0.75}>
+      {/* Top row: name/ticker + price */}
+      <View style={styles.cardTop}>
         <View style={styles.cardLeft}>
           <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.cardTicker}>{item.ticker}</Text>
-          <SectorBadge sector={item.sector} />
         </View>
-        <TouchableOpacity
-          onPress={onConfigure}
-          style={styles.configBtn}
-          activeOpacity={0.7}
-        >
+        <View style={styles.cardRight}>
+          {item.mockPrice !== undefined && (
+            <Text style={styles.cardPrice}>${item.mockPrice.toFixed(2)}</Text>
+          )}
+          {item.mockChange !== undefined && (
+            <View style={[styles.changePill, { backgroundColor: isUp ? '#DCFCE7' : '#FEE2E2' }]}>
+              <Text style={[styles.changeText, { color: isUp ? Colors.bullish : Colors.bearish }]}>
+                {isUp ? '+' : ''}{item.mockChange.toFixed(2)}%
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Force bar */}
+      <Text style={styles.forceLabel}>今日信号力</Text>
+      <View style={styles.forceBarTrack}>
+        <View style={[styles.forceBarBull, { flex: force.bullish }]} />
+        {force.bearish > 0 && <View style={[styles.forceBarBear, { flex: force.bearish }]} />}
+      </View>
+      <View style={styles.forceFooter}>
+        <Text style={styles.forceBullText}>+{force.bullish} 看多</Text>
+        <TouchableOpacity onPress={onConfigure} activeOpacity={0.7}>
           <Text style={styles.configBtnText}>{t('watchlist_weights', lang)}</Text>
         </TouchableOpacity>
+        {force.bearish > 0 && <Text style={styles.forceBearText}>-{force.bearish} 看空</Text>}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }
 
@@ -113,9 +152,10 @@ function SearchRow({ stock, added, onToggle }: SearchRowProps) {
 export default function WatchlistScreen() {
   const lang       = useLanguage();
   const navigation = useNavigation<any>();
-  const [watchlist, setWatchlist]       = useState<WatchlistItem[]>([]);
-  const [query, setQuery]               = useState('');
-  const [selectedItem, setSelectedItem] = useState<WatchlistItem | null>(null);
+  const [watchlist, setWatchlist]             = useState<WatchlistItem[]>([]);
+  const [query, setQuery]                     = useState('');
+  const [selectedItem, setSelectedItem]       = useState<WatchlistItem | null>(null);
+  const [detailItem, setDetailItem]           = useState<WatchlistItem | null>(null);
 
   useFocusEffect(useCallback(() => { loadWatchlist().then(setWatchlist); }, []));
 
@@ -138,16 +178,29 @@ export default function WatchlistScreen() {
       updated = watchlist.filter(i => i.ticker !== stock.ticker);
     } else {
       const item: WatchlistItem = {
-        ticker:  stock.ticker,
-        name:    stock.name,
-        sector:  stock.sector,
-        addedAt: new Date().toISOString(),
+        ticker:       stock.ticker,
+        name:         stock.name,
+        sector:       stock.sector,
+        addedAt:      new Date().toISOString(),
+        mockPrice:    stock.mockPrice,
+        mockChange:   stock.mockChange,
+        mockPE:       stock.mockPE,
+        mockMarketCap: stock.mockMarketCap,
       };
       updated = [...watchlist, item];
     }
     setWatchlist(updated);
     await saveWatchlist(updated);
   }, [watchlist, watchlistTickers]);
+
+  if (detailItem) {
+    return (
+      <StockDetailScreen
+        item={detailItem}
+        onBack={() => setDetailItem(null)}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -221,9 +274,9 @@ export default function WatchlistScreen() {
               {watchlist.map(item => (
                 <WatchlistCard
                   key={item.ticker}
-                  item={item}
+                  item={withMockData(item)}
+                  onPress={() => setDetailItem(withMockData(item))}
                   onConfigure={() => setSelectedItem(item)}
-                  onRemove={() => toggleStock(item)}
                   lang={lang}
                 />
               ))}
@@ -365,23 +418,47 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     padding: Spacing.md,
     marginBottom: Spacing.sm,
+    gap: Spacing.sm,
   },
-  cardMain: {
+  cardTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardLeft: { flex: 1, gap: 2 },
+  cardRight: { alignItems: 'flex-end', gap: 4 },
+  cardName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  cardTicker: { fontSize: 13, color: Colors.textSecondary },
+  cardPrice: { fontSize: 16, fontWeight: '500', color: Colors.textPrimary },
+  changePill: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+  },
+  changeText: { fontSize: 12, fontWeight: '500' },
+  forceLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: Colors.textSecondary,
+    letterSpacing: 0.3,
+  },
+  forceBarTrack: {
+    flexDirection: 'row',
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    backgroundColor: Colors.border,
+  },
+  forceBarBull: { backgroundColor: '#16A34A' },
+  forceBarBear: { backgroundColor: '#DC2626' },
+  forceFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  cardLeft: { flex: 1, gap: 4 },
-  cardName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
-  cardTicker: { fontSize: 13, color: Colors.textSecondary },
-  configBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: Radius.button,
-    borderWidth: 1,
-    borderColor: Colors.accentBlue,
-  },
-  configBtnText: { fontSize: 12, color: Colors.accentBlue, fontWeight: '500' },
+  forceBullText: { fontSize: 11, color: Colors.bullish, fontWeight: '500' },
+  forceBearText: { fontSize: 11, color: Colors.bearish, fontWeight: '500' },
+  configBtnText: { fontSize: 11, color: Colors.accentBlue, fontWeight: '500' },
 
   // Search results
   searchRow: {
