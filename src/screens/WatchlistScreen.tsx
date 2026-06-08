@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { WatchlistItem } from '../types';
 import { loadWatchlist, saveWatchlist } from '../utils/watchlist';
 import { POPULAR_STOCKS, StockInfo } from '../data/stockList';
@@ -61,8 +63,8 @@ function WatchlistCard({ item, onConfigure, lang }: WatchlistCardProps) {
     <View style={[styles.card, CardShadow]}>
       <View style={styles.cardMain}>
         <View style={styles.cardLeft}>
-          <Text style={styles.cardTicker}>{item.ticker}</Text>
           <Text style={styles.cardName} numberOfLines={1}>{item.name}</Text>
+          <Text style={styles.cardTicker}>{item.ticker}</Text>
           <SectorBadge sector={item.sector} />
         </View>
         <TouchableOpacity
@@ -109,12 +111,13 @@ function SearchRow({ stock, added, onToggle }: SearchRowProps) {
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function WatchlistScreen() {
-  const lang = useLanguage();
+  const lang       = useLanguage();
+  const navigation = useNavigation<any>();
   const [watchlist, setWatchlist]       = useState<WatchlistItem[]>([]);
   const [query, setQuery]               = useState('');
   const [selectedItem, setSelectedItem] = useState<WatchlistItem | null>(null);
 
-  useEffect(() => { loadWatchlist().then(setWatchlist); }, []);
+  useFocusEffect(useCallback(() => { loadWatchlist().then(setWatchlist); }, []));
 
   const watchlistTickers = useMemo(
     () => new Set(watchlist.map(i => i.ticker)),
@@ -153,6 +156,13 @@ export default function WatchlistScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t('watchlist_title', lang)}</Text>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('AddCompany')}
+          style={styles.headerPlusBtn}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.headerPlusBtnText}>＋</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Search bar */}
@@ -245,6 +255,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
 
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: Spacing.lg,
     paddingTop: Spacing.md,
     paddingBottom: Spacing.sm,
@@ -256,6 +269,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: Colors.textPrimary,
     letterSpacing: -0.3,
+  },
+  headerPlusBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.accentBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerPlusBtnText: {
+    fontSize: 22,
+    color: Colors.white,
+    lineHeight: 28,
+    fontWeight: '300',
   },
 
   searchBar: {
@@ -345,8 +372,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardLeft: { flex: 1, gap: 4 },
-  cardTicker: { fontSize: 16, fontWeight: '700', color: Colors.textPrimary },
-  cardName: { fontSize: 13, color: Colors.textSecondary },
+  cardName: { fontSize: 15, fontWeight: '600', color: Colors.textPrimary },
+  cardTicker: { fontSize: 13, color: Colors.textSecondary },
   configBtn: {
     paddingHorizontal: 12,
     paddingVertical: 7,

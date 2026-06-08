@@ -45,10 +45,10 @@ export interface WatchlistItem {
   name: string;
   sector: string;
   addedAt: string; // ISO 8601
-  mockPrice: number;
-  mockChange: number;
-  mockPE: number;
-  mockMarketCap: string;
+  mockPrice?: number;
+  mockChange?: number;
+  mockPE?: number;
+  mockMarketCap?: string;
 }
 
 export interface UserPreferences {

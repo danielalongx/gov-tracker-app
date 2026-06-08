@@ -1,0 +1,180 @@
+export interface Company {
+  ticker: string
+  name: string
+  nameZh?: string
+  sector: string
+  exchange: string
+}
+
+export const COMPANY_LIST: Company[] = [
+  // ── US Tech ─────────────────────────────────────────────────────────────────
+  { ticker: 'AAPL',    name: 'Apple Inc.',                        nameZh: '苹果',       sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'MSFT',    name: 'Microsoft Corporation',             nameZh: '微软',       sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'GOOGL',   name: 'Alphabet Inc.',                     nameZh: '谷歌',       sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'META',    name: 'Meta Platforms Inc.',               nameZh: 'Meta',       sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'AMZN',    name: 'Amazon.com Inc.',                   nameZh: '亚马逊',     sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'NFLX',    name: 'Netflix Inc.',                      nameZh: '奈飞',       sector: '媒体',     exchange: 'NASDAQ' },
+  { ticker: 'ORCL',    name: 'Oracle Corporation',                nameZh: '甲骨文',     sector: '科技',     exchange: 'NYSE'   },
+  { ticker: 'CRM',     name: 'Salesforce Inc.',                   nameZh: 'Salesforce', sector: '科技',     exchange: 'NYSE'   },
+  { ticker: 'SNOW',    name: 'Snowflake Inc.',                    nameZh: 'Snowflake',  sector: '科技',     exchange: 'NYSE'   },
+  { ticker: 'PLTR',    name: 'Palantir Technologies Inc.',        nameZh: '帕兰提尔',   sector: 'AI',       exchange: 'NYSE'   },
+  { ticker: 'ADBE',    name: 'Adobe Inc.',                        nameZh: 'Adobe',      sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'CSCO',    name: 'Cisco Systems Inc.',                nameZh: '思科',       sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'IBM',     name: 'IBM Corporation',                   nameZh: 'IBM',        sector: '科技',     exchange: 'NYSE'   },
+  { ticker: 'UBER',    name: 'Uber Technologies Inc.',            nameZh: 'Uber',       sector: '出行',     exchange: 'NYSE'   },
+  { ticker: 'LYFT',    name: 'Lyft Inc.',                         nameZh: 'Lyft',       sector: '出行',     exchange: 'NASDAQ' },
+  { ticker: 'ABNB',    name: 'Airbnb Inc.',                       nameZh: '爱彼迎',     sector: '旅游',     exchange: 'NASDAQ' },
+  { ticker: 'SPOT',    name: 'Spotify Technology SA',             nameZh: 'Spotify',    sector: '媒体',     exchange: 'NYSE'   },
+  { ticker: 'SNAP',    name: 'Snap Inc.',                         nameZh: 'Snap',       sector: '社交',     exchange: 'NYSE'   },
+  { ticker: 'RBLX',    name: 'Roblox Corporation',                nameZh: 'Roblox',     sector: '游戏',     exchange: 'NYSE'   },
+  { ticker: 'ZM',      name: 'Zoom Video Communications Inc.',    nameZh: 'Zoom',       sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'DDOG',    name: 'Datadog Inc.',                      nameZh: 'Datadog',    sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'CRWD',    name: 'CrowdStrike Holdings Inc.',         nameZh: 'CrowdStrike',sector: '网络安全', exchange: 'NASDAQ' },
+  { ticker: 'NET',     name: 'Cloudflare Inc.',                   nameZh: 'Cloudflare', sector: '网络',     exchange: 'NYSE'   },
+  { ticker: 'ZS',      name: 'Zscaler Inc.',                      nameZh: 'Zscaler',    sector: '网络安全', exchange: 'NASDAQ' },
+  { ticker: 'OKTA',    name: 'Okta Inc.',                         nameZh: 'Okta',       sector: '网络安全', exchange: 'NASDAQ' },
+  { ticker: 'SHOP',    name: 'Shopify Inc.',                      nameZh: 'Shopify',    sector: '电商',     exchange: 'NYSE'   },
+  { ticker: 'TWLO',    name: 'Twilio Inc.',                       nameZh: 'Twilio',     sector: '科技',     exchange: 'NYSE'   },
+  { ticker: 'PINS',    name: 'Pinterest Inc.',                    nameZh: 'Pinterest',  sector: '社交',     exchange: 'NYSE'   },
+  { ticker: 'TSLA',    name: 'Tesla Inc.',                        nameZh: '特斯拉',     sector: '新能源车', exchange: 'NASDAQ' },
+
+  // ── US Semiconductor ─────────────────────────────────────────────────────────
+  { ticker: 'NVDA',    name: 'NVIDIA Corporation',                nameZh: '英伟达',     sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'AMD',     name: 'Advanced Micro Devices Inc.',       nameZh: 'AMD',        sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'INTC',    name: 'Intel Corporation',                 nameZh: '英特尔',     sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'QCOM',    name: 'Qualcomm Inc.',                     nameZh: '高通',       sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'AVGO',    name: 'Broadcom Inc.',                     nameZh: '博通',       sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'MU',      name: 'Micron Technology Inc.',            nameZh: '美光科技',   sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'ARM',     name: 'Arm Holdings plc',                  nameZh: 'ARM',        sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'TSM',     name: 'Taiwan Semiconductor Manufacturing',nameZh: '台积电',     sector: '半导体',   exchange: 'NYSE'   },
+  { ticker: 'ASML',    name: 'ASML Holding N.V.',                 nameZh: 'ASML',       sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'AMAT',    name: 'Applied Materials Inc.',            nameZh: '应用材料',   sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'LRCX',    name: 'Lam Research Corporation',          nameZh: '泛林集团',   sector: '半导体',   exchange: 'NASDAQ' },
+  { ticker: 'TXN',     name: 'Texas Instruments Inc.',            nameZh: '德州仪器',   sector: '半导体',   exchange: 'NASDAQ' },
+
+  // ── US Finance ───────────────────────────────────────────────────────────────
+  { ticker: 'JPM',     name: 'JPMorgan Chase & Co.',              nameZh: '摩根大通',   sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'GS',      name: 'Goldman Sachs Group Inc.',          nameZh: '高盛',       sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'BAC',     name: 'Bank of America Corp.',             nameZh: '美国银行',   sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'MS',      name: 'Morgan Stanley',                    nameZh: '摩根士丹利', sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'BRK.B',   name: 'Berkshire Hathaway Inc.',           nameZh: '伯克希尔',   sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'V',       name: 'Visa Inc.',                         nameZh: '维萨',       sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'MA',      name: 'Mastercard Inc.',                   nameZh: '万事达',     sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'PYPL',    name: 'PayPal Holdings Inc.',              nameZh: '贝宝',       sector: '金融科技', exchange: 'NASDAQ' },
+  { ticker: 'SQ',      name: 'Block Inc.',                        nameZh: 'Block',      sector: '金融科技', exchange: 'NYSE'   },
+  { ticker: 'COIN',    name: 'Coinbase Global Inc.',              nameZh: 'Coinbase',   sector: '加密货币', exchange: 'NASDAQ' },
+  { ticker: 'AXP',     name: 'American Express Co.',              nameZh: '美国运通',   sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'WFC',     name: 'Wells Fargo & Co.',                 nameZh: '富国银行',   sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'BLK',     name: 'BlackRock Inc.',                    nameZh: '贝莱德',     sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'SCHW',    name: 'Charles Schwab Corp.',              nameZh: '嘉信理财',   sector: '金融',     exchange: 'NYSE'   },
+  { ticker: 'C',       name: 'Citigroup Inc.',                    nameZh: '花旗集团',   sector: '金融',     exchange: 'NYSE'   },
+
+  // ── US Energy ────────────────────────────────────────────────────────────────
+  { ticker: 'XOM',     name: 'ExxonMobil Corporation',            nameZh: '埃克森美孚', sector: '能源',     exchange: 'NYSE'   },
+  { ticker: 'CVX',     name: 'Chevron Corporation',               nameZh: '雪佛龙',     sector: '能源',     exchange: 'NYSE'   },
+  { ticker: 'BP',      name: 'BP p.l.c.',                         nameZh: 'BP',         sector: '能源',     exchange: 'NYSE'   },
+  { ticker: 'NEE',     name: 'NextEra Energy Inc.',               nameZh: '新世纪能源', sector: '清洁能源', exchange: 'NYSE'   },
+  { ticker: 'LNG',     name: 'Cheniere Energy Inc.',              nameZh: '切尼尔能源', sector: '能源',     exchange: 'NYSE'   },
+  { ticker: 'COP',     name: 'ConocoPhillips',                    nameZh: '康菲石油',   sector: '能源',     exchange: 'NYSE'   },
+  { ticker: 'SLB',     name: 'SLB N.V. (Schlumberger)',           nameZh: '斯伦贝谢',   sector: '能源服务', exchange: 'NYSE'   },
+  { ticker: 'OXY',     name: 'Occidental Petroleum Corp.',        nameZh: '西方石油',   sector: '能源',     exchange: 'NYSE'   },
+
+  // ── US Healthcare ────────────────────────────────────────────────────────────
+  { ticker: 'JNJ',     name: 'Johnson & Johnson',                 nameZh: '强生',       sector: '医疗',     exchange: 'NYSE'   },
+  { ticker: 'LLY',     name: 'Eli Lilly and Company',             nameZh: '礼来',       sector: '医疗',     exchange: 'NYSE'   },
+  { ticker: 'PFE',     name: 'Pfizer Inc.',                       nameZh: '辉瑞',       sector: '医疗',     exchange: 'NYSE'   },
+  { ticker: 'MRNA',    name: 'Moderna Inc.',                      nameZh: 'Moderna',    sector: '生物科技', exchange: 'NASDAQ' },
+  { ticker: 'ABBV',    name: 'AbbVie Inc.',                       nameZh: '艾伯维',     sector: '医疗',     exchange: 'NYSE'   },
+  { ticker: 'UNH',     name: 'UnitedHealth Group Inc.',           nameZh: '联合健康',   sector: '医疗保险', exchange: 'NYSE'   },
+  { ticker: 'BMY',     name: 'Bristol-Myers Squibb Co.',          nameZh: '百时美施贵宝',sector: '医疗',    exchange: 'NYSE'   },
+  { ticker: 'GILD',    name: 'Gilead Sciences Inc.',              nameZh: '吉利德',     sector: '生物科技', exchange: 'NASDAQ' },
+  { ticker: 'AMGN',    name: 'Amgen Inc.',                        nameZh: '安进',       sector: '生物科技', exchange: 'NASDAQ' },
+  { ticker: 'VRTX',    name: 'Vertex Pharmaceuticals Inc.',       nameZh: 'Vertex',     sector: '生物科技', exchange: 'NASDAQ' },
+  { ticker: 'REGN',    name: 'Regeneron Pharmaceuticals Inc.',    nameZh: '再生元',     sector: '生物科技', exchange: 'NASDAQ' },
+  { ticker: 'ISRG',    name: 'Intuitive Surgical Inc.',           nameZh: '直觉外科',   sector: '医疗器械', exchange: 'NASDAQ' },
+  { ticker: 'MRK',     name: 'Merck & Co. Inc.',                  nameZh: '默沙东',     sector: '医疗',     exchange: 'NYSE'   },
+  { ticker: 'ABT',     name: 'Abbott Laboratories',               nameZh: '雅培',       sector: '医疗器械', exchange: 'NYSE'   },
+  { ticker: 'CVS',     name: 'CVS Health Corporation',            nameZh: 'CVS',        sector: '医疗零售', exchange: 'NYSE'   },
+  { ticker: 'BIIB',    name: 'Biogen Inc.',                       nameZh: '渤健',       sector: '生物科技', exchange: 'NASDAQ' },
+
+  // ── US Consumer ──────────────────────────────────────────────────────────────
+  { ticker: 'WMT',     name: 'Walmart Inc.',                      nameZh: '沃尔玛',     sector: '零售',     exchange: 'NYSE'   },
+  { ticker: 'COST',    name: 'Costco Wholesale Corp.',            nameZh: 'Costco',     sector: '零售',     exchange: 'NASDAQ' },
+  { ticker: 'TGT',     name: 'Target Corporation',                nameZh: 'Target',     sector: '零售',     exchange: 'NYSE'   },
+  { ticker: 'MCD',     name: "McDonald's Corporation",            nameZh: '麦当劳',     sector: '餐饮',     exchange: 'NYSE'   },
+  { ticker: 'NKE',     name: 'Nike Inc.',                         nameZh: '耐克',       sector: '消费品',   exchange: 'NYSE'   },
+  { ticker: 'SBUX',    name: 'Starbucks Corporation',             nameZh: '星巴克',     sector: '餐饮',     exchange: 'NASDAQ' },
+  { ticker: 'PG',      name: 'Procter & Gamble Co.',              nameZh: '宝洁',       sector: '消费品',   exchange: 'NYSE'   },
+  { ticker: 'HD',      name: 'The Home Depot Inc.',               nameZh: '家得宝',     sector: '零售',     exchange: 'NYSE'   },
+  { ticker: 'LOW',     name: "Lowe's Companies Inc.",             nameZh: "Lowe's",     sector: '零售',     exchange: 'NYSE'   },
+  { ticker: 'KO',      name: 'The Coca-Cola Company',             nameZh: '可口可乐',   sector: '消费品',   exchange: 'NYSE'   },
+  { ticker: 'PEP',     name: 'PepsiCo Inc.',                      nameZh: '百事可乐',   sector: '消费品',   exchange: 'NASDAQ' },
+  { ticker: 'DIS',     name: 'The Walt Disney Company',           nameZh: '迪士尼',     sector: '媒体',     exchange: 'NYSE'   },
+  { ticker: 'EBAY',    name: 'eBay Inc.',                         nameZh: 'eBay',       sector: '电商',     exchange: 'NASDAQ' },
+  { ticker: 'MO',      name: 'Altria Group Inc.',                 nameZh: '奥驰亚',     sector: '消费品',   exchange: 'NYSE'   },
+  { ticker: 'PM',      name: 'Philip Morris International',       nameZh: '菲利普莫里斯',sector: '消费品',  exchange: 'NYSE'   },
+
+  // ── US Industrial / Defense ──────────────────────────────────────────────────
+  { ticker: 'BA',      name: 'The Boeing Company',                nameZh: '波音',       sector: '航空航天', exchange: 'NYSE'   },
+  { ticker: 'LMT',     name: 'Lockheed Martin Corp.',             nameZh: '洛克希德马丁',sector: '国防',    exchange: 'NYSE'   },
+  { ticker: 'RTX',     name: 'RTX Corporation',                   nameZh: '雷神技术',   sector: '国防',     exchange: 'NYSE'   },
+  { ticker: 'CAT',     name: 'Caterpillar Inc.',                   nameZh: '卡特彼勒',  sector: '工业',     exchange: 'NYSE'   },
+  { ticker: 'DE',      name: 'Deere & Company',                   nameZh: '约翰迪尔',   sector: '农业机械', exchange: 'NYSE'   },
+  { ticker: 'GE',      name: 'GE Aerospace',                      nameZh: '通用电气',   sector: '工业',     exchange: 'NYSE'   },
+  { ticker: 'HON',     name: 'Honeywell International Inc.',      nameZh: '霍尼韦尔',   sector: '工业',     exchange: 'NASDAQ' },
+  { ticker: 'MMM',     name: '3M Company',                        nameZh: '3M',         sector: '工业',     exchange: 'NYSE'   },
+  { ticker: 'FDX',     name: 'FedEx Corporation',                 nameZh: '联邦快递',   sector: '物流',     exchange: 'NYSE'   },
+  { ticker: 'UPS',     name: 'United Parcel Service Inc.',        nameZh: 'UPS',        sector: '物流',     exchange: 'NYSE'   },
+  { ticker: 'DAL',     name: 'Delta Air Lines Inc.',              nameZh: '达美航空',   sector: '航空',     exchange: 'NYSE'   },
+  { ticker: 'UAL',     name: 'United Airlines Holdings Inc.',     nameZh: '美联航',     sector: '航空',     exchange: 'NASDAQ' },
+
+  // ── US Mining / Materials ────────────────────────────────────────────────────
+  { ticker: 'BHP',     name: 'BHP Group Limited',                 nameZh: '必和必拓',   sector: '矿业',     exchange: 'NYSE'   },
+  { ticker: 'RIO',     name: 'Rio Tinto Group',                   nameZh: '力拓',       sector: '矿业',     exchange: 'NYSE'   },
+  { ticker: 'FCX',     name: 'Freeport-McMoRan Inc.',             nameZh: '自由港',     sector: '矿业',     exchange: 'NYSE'   },
+
+  // ── US Telecom ───────────────────────────────────────────────────────────────
+  { ticker: 'T',       name: 'AT&T Inc.',                         nameZh: 'AT&T',       sector: '电信',     exchange: 'NYSE'   },
+  { ticker: 'VZ',      name: 'Verizon Communications Inc.',       nameZh: '威瑞森',     sector: '电信',     exchange: 'NYSE'   },
+  { ticker: 'TMUS',    name: 'T-Mobile US Inc.',                  nameZh: 'T-Mobile',   sector: '电信',     exchange: 'NASDAQ' },
+
+  // ── US REIT / Infrastructure ─────────────────────────────────────────────────
+  { ticker: 'AMT',     name: 'American Tower Corporation',        nameZh: '美国铁塔',   sector: 'REIT',     exchange: 'NYSE'   },
+  { ticker: 'PLD',     name: 'Prologis Inc.',                     nameZh: '普洛斯',     sector: 'REIT',     exchange: 'NYSE'   },
+
+  // ── Chinese ADRs ─────────────────────────────────────────────────────────────
+  { ticker: 'BABA',    name: 'Alibaba Group Holding Ltd.',        nameZh: '阿里巴巴',   sector: '科技',     exchange: 'NYSE'   },
+  { ticker: 'JD',      name: 'JD.com Inc.',                       nameZh: '京东',       sector: '电商',     exchange: 'NASDAQ' },
+  { ticker: 'PDD',     name: 'PDD Holdings Inc.',                 nameZh: '拼多多',     sector: '电商',     exchange: 'NASDAQ' },
+  { ticker: 'BIDU',    name: 'Baidu Inc.',                        nameZh: '百度',       sector: '科技',     exchange: 'NASDAQ' },
+  { ticker: 'NIO',     name: 'NIO Inc.',                          nameZh: '蔚来',       sector: '新能源车', exchange: 'NYSE'   },
+  { ticker: 'XPEV',    name: 'XPeng Inc.',                        nameZh: '小鹏汽车',   sector: '新能源车', exchange: 'NYSE'   },
+  { ticker: 'LI',      name: 'Li Auto Inc.',                      nameZh: '理想汽车',   sector: '新能源车', exchange: 'NASDAQ' },
+  { ticker: 'TCEHY',   name: 'Tencent Holdings ADR',              nameZh: '腾讯控股',   sector: '科技',     exchange: 'OTC'    },
+  { ticker: 'BILI',    name: 'Bilibili Inc.',                     nameZh: '哔哩哔哩',   sector: '媒体',     exchange: 'NASDAQ' },
+  { ticker: 'NTES',    name: 'NetEase Inc.',                      nameZh: '网易',       sector: '游戏',     exchange: 'NASDAQ' },
+  { ticker: 'TME',     name: 'Tencent Music Entertainment',       nameZh: '腾讯音乐',   sector: '媒体',     exchange: 'NYSE'   },
+
+  // ── HK Listed ────────────────────────────────────────────────────────────────
+  { ticker: '9988.HK', name: 'Alibaba Group Holding Ltd.',        nameZh: '阿里巴巴',   sector: '科技',     exchange: 'HKEX'   },
+  { ticker: '0700.HK', name: 'Tencent Holdings Ltd.',             nameZh: '腾讯控股',   sector: '科技',     exchange: 'HKEX'   },
+  { ticker: '9999.HK', name: 'NetEase Inc.',                      nameZh: '网易',       sector: '游戏',     exchange: 'HKEX'   },
+  { ticker: '3690.HK', name: 'Meituan',                           nameZh: '美团',       sector: '本地服务', exchange: 'HKEX'   },
+  { ticker: '1810.HK', name: 'Xiaomi Corporation',                nameZh: '小米',       sector: '科技',     exchange: 'HKEX'   },
+  { ticker: '1211.HK', name: 'BYD Company Limited',               nameZh: '比亚迪',     sector: '新能源车', exchange: 'HKEX'   },
+  { ticker: '0005.HK', name: 'HSBC Holdings plc',                 nameZh: '汇丰控股',   sector: '金融',     exchange: 'HKEX'   },
+  { ticker: '2318.HK', name: 'Ping An Insurance Group',           nameZh: '中国平安',   sector: '金融',     exchange: 'HKEX'   },
+  { ticker: '0941.HK', name: 'China Mobile Limited',              nameZh: '中国移动',   sector: '电信',     exchange: 'HKEX'   },
+  { ticker: '6098.HK', name: 'CR Land',                           nameZh: '华润置地',   sector: '房地产',   exchange: 'HKEX'   },
+
+  // ── European ─────────────────────────────────────────────────────────────────
+  { ticker: 'HSBA.L',  name: 'HSBC Holdings plc',                 nameZh: '汇丰控股',   sector: '金融',     exchange: 'LSE'    },
+  { ticker: 'SAP',     name: 'SAP SE',                            nameZh: 'SAP',        sector: '科技',     exchange: 'NYSE'   },
+  { ticker: 'LVMUY',   name: 'LVMH Moët Hennessy Louis Vuitton',  nameZh: 'LVMH',       sector: '奢侈品',   exchange: 'OTC'    },
+  { ticker: 'TTE',     name: 'TotalEnergies SE',                  nameZh: '道达尔能源', sector: '能源',     exchange: 'NYSE'   },
+  { ticker: 'VWAGY',   name: 'Volkswagen AG',                     nameZh: '大众汽车',   sector: '汽车',     exchange: 'OTC'    },
+  { ticker: 'BMWYY',   name: 'Bayerische Motoren Werke AG (BMW)', nameZh: '宝马',       sector: '汽车',     exchange: 'OTC'    },
+  { ticker: 'SIEGY',   name: 'Siemens AG',                        nameZh: '西门子',     sector: '工业',     exchange: 'OTC'    },
+  { ticker: 'SHEL',    name: 'Shell plc',                         nameZh: '壳牌',       sector: '能源',     exchange: 'NYSE'   },
+  { ticker: 'EQNR',    name: 'Equinor ASA',                       nameZh: '挪威国家石油',sector: '能源',    exchange: 'NYSE'   },
+]

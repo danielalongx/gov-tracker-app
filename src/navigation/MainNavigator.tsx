@@ -1,13 +1,25 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Platform } from 'react-native';
 import FeedScreen from '../screens/FeedScreen';
 import WatchlistScreen from '../screens/WatchlistScreen';
+import AddCompanyScreen from '../screens/AddCompanyScreen';
 import MatrixScreen from '../screens/MatrixScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { Colors } from '../theme';
 
 const Tab = createBottomTabNavigator();
+const WatchlistStack = createNativeStackNavigator();
+
+function WatchlistNavigator() {
+  return (
+    <WatchlistStack.Navigator screenOptions={{ headerShown: false }}>
+      <WatchlistStack.Screen name="WatchlistMain" component={WatchlistScreen} />
+      <WatchlistStack.Screen name="AddCompany" component={AddCompanyScreen} />
+    </WatchlistStack.Navigator>
+  );
+}
 
 const tabBarStyle = {
   backgroundColor: Colors.surface,
@@ -47,7 +59,7 @@ export default function MainNavigator() {
       />
       <Tab.Screen
         name="Watchlist"
-        component={WatchlistScreen}
+        component={WatchlistNavigator}
         options={{
           tabBarLabel: '自选',
           tabBarIcon: ({ focused, color }) => (
