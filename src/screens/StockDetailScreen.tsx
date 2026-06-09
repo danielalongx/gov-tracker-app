@@ -5,7 +5,7 @@ import {
 } from 'react-native'
 import { theme } from '../theme'
 import { WatchlistItem, DimensionWeights, Signal } from '../types'
-import { loadWeights, saveWeights } from '../utils/watchlist'
+import { loadWeights } from '../utils/watchlist'
 import DimensionWeightModal from '../components/DimensionWeightModal'
 import { MOCK_SIGNALS } from '../data/mockSignals'
 import SignalCard from '../components/SignalCard'
@@ -120,28 +120,20 @@ export function StockDetailScreen({ item, onBack }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [liveSnapshot, setLiveSnapshot] = useState<StockSnapshot | null>(null)
   const [liveSignals, setLiveSignals] = useState<Signal[] | null>(null)
-  const [loadingLive, setLoadingLive] = useState(true)
 
   useEffect(() => {
     loadWeights(item.ticker).then(w => { if (w) setWeights(w) })
   }, [item.ticker])
 
   useEffect(() => {
-    setLoadingLive(true)
     Promise.all([
       getStockSnapshot(item.ticker),
       getTickerSignals(item.ticker),
     ]).then(([snap, sigs]) => {
       setLiveSnapshot(snap)
       setLiveSignals(sigs.length > 0 ? sigs : null)
-    }).finally(() => setLoadingLive(false))
+    }).catch(() => {})
   }, [item.ticker])
-
-  const handleSaveWeights = async (w: DimensionWeights) => {
-    await saveWeights(item.ticker, w)
-    setWeights(w)
-    setShowModal(false)
-  }
 
   const relatedSignals: Signal[] = liveSignals ?? MOCK_SIGNALS.filter(s =>
     s.companies?.some(c => c.ticker === item.ticker) ||
@@ -149,14 +141,14 @@ export function StockDetailScreen({ item, onBack }: Props) {
   ).slice(0, 5)
 
   // Use live price if available, fallback to mock
-  const displayPrice = liveSnapshot?.price ?? item.mockPrice
-  const displayPE = liveSnapshot?.pe_ratio ?? item.mockPE
+  const displayPrice = liveSnapshot?.price ?? item.mockPrice ?? 0
+  const displayPE = liveSnapshot?.pe_ratio ?? item.mockPE ?? 0
   const displayMktCap = liveSnapshot?.market_cap
     ? formatMarketCap(liveSnapshot.market_cap)
-    : item.mockMarketCap
+    : (item.mockMarketCap ?? '--')
   const isLive = !!liveSnapshot?.price
 
-  const isUp = item.mockChange >= 0
+  const isUp = (item.mockChange ?? 0) >= 0
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -183,7 +175,7 @@ export function StockDetailScreen({ item, onBack }: Props) {
           </View>
           <View style={[styles.changePill, { backgroundColor: isUp ? '#DCFCE7' : '#FEE2E2' }]}>
             <Text style={[styles.changeText, { color: isUp ? theme.colors.bullish : theme.colors.bearish }]}>
-              {isUp ? '+' : ''}{item.mockChange.toFixed(2)}%
+              {isUp ? '+' : ''}{(item.mockChange ?? 0).toFixed(2)}%
             </Text>
           </View>
           <View style={styles.metricsRow}>
@@ -242,15 +234,13 @@ export function StockDetailScreen({ item, onBack }: Props) {
         </View>
       </ScrollView>
 
-      <DimensionWeightModal
-        visible={showModal}
-        ticker={item.ticker}
-        companyName={item.name}
-        initialWeights={weights}
-        onSave={handleSaveWeights}
-        onClose={() => setShowModal(false)}
-        lang={lang}
-      />
+      {showModal && (
+        <DimensionWeightModal
+          item={item}
+          onClose={() => setShowModal(false)}
+          lang={lang}
+        />
+      )}
     </SafeAreaView>
   )
 }
