@@ -1,12 +1,13 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Platform } from 'react-native';
+import { Platform, View, Text, StyleSheet } from 'react-native';
 import FeedScreen from '../screens/FeedScreen';
 import WatchlistScreen from '../screens/WatchlistScreen';
 import AddCompanyScreen from '../screens/AddCompanyScreen';
 import MatrixScreen from '../screens/MatrixScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import SimulationScreen from '../screens/SimulationScreen';
 import { Colors } from '../theme';
 
 const Tab = createBottomTabNavigator();
@@ -78,12 +79,22 @@ export default function MainNavigator() {
         }}
       />
       <Tab.Screen
+        name="Simulation"
+        component={SimulationScreen}
+        options={{
+          tabBarLabel: '模拟',
+          tabBarIcon: ({ focused, color }) => (
+            <TabBarIcon name="simulation" focused={focused} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
           tabBarLabel: '设置',
           tabBarIcon: ({ focused, color }) => (
-            <TabBarIcon name="person" focused={focused} color={color} />
+            <TabBarIcon name="gear" focused={focused} color={color} />
           ),
         }}
       />
@@ -91,15 +102,16 @@ export default function MainNavigator() {
   );
 }
 
-// Simple geometric icon using React Native Views — zero native deps
-import { View, Text, StyleSheet } from 'react-native';
+// ── Tab bar icons ─────────────────────────────────────────────────────────────
+
+type IconName = 'bar-chart' | 'watchlist' | 'grid' | 'gear' | 'simulation';
 
 function TabBarIcon({
   name,
   focused,
   color,
 }: {
-  name: 'bar-chart' | 'watchlist' | 'grid' | 'person';
+  name: IconName;
   focused: boolean;
   color: string;
 }) {
@@ -117,14 +129,15 @@ function TabBarIcon({
       </View>
     );
   }
+
   if (name === 'watchlist') {
-    // Star ★ in accent-gold
     return (
       <Text style={{ fontSize: 20, color: focused ? Colors.accentGold : color, lineHeight: 22 }}>
         ★
       </Text>
     );
   }
+
   if (name === 'bar-chart') {
     return (
       <View style={iconStyles.row}>
@@ -135,12 +148,40 @@ function TabBarIcon({
       </View>
     );
   }
-  return (
-    <View style={iconStyles.personWrap}>
-      <View style={[iconStyles.head, { borderColor: color }]} />
-      <View style={[iconStyles.body, { borderColor: color }]} />
-    </View>
-  );
+
+  if (name === 'gear') {
+    // Gear icon using concentric circles with notches represented by dots
+    return (
+      <View style={iconStyles.gearWrap}>
+        <View style={[iconStyles.gearOuter, { borderColor: color }]}>
+          <View style={[iconStyles.gearInner, { borderColor: color }]} />
+        </View>
+        {/* Gear teeth: 4 small rectangles around the outer ring */}
+        <View style={[iconStyles.gearTooth, iconStyles.gearToothTop, { backgroundColor: color }]} />
+        <View style={[iconStyles.gearTooth, iconStyles.gearToothBottom, { backgroundColor: color }]} />
+        <View style={[iconStyles.gearTooth, iconStyles.gearToothLeft, { backgroundColor: color }]} />
+        <View style={[iconStyles.gearTooth, iconStyles.gearToothRight, { backgroundColor: color }]} />
+      </View>
+    );
+  }
+
+  if (name === 'simulation') {
+    // Simulation icon: up arrow + down arrow side by side
+    return (
+      <View style={iconStyles.simWrap}>
+        <View style={iconStyles.simArrowUp}>
+          <View style={[iconStyles.simArrowHead, { borderBottomColor: color }]} />
+          <View style={[iconStyles.simArrowStem, { backgroundColor: color }]} />
+        </View>
+        <View style={iconStyles.simArrowDown}>
+          <View style={[iconStyles.simArrowStem, { backgroundColor: color }]} />
+          <View style={[iconStyles.simArrowHeadDown, { borderTopColor: color }]} />
+        </View>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 const iconStyles = StyleSheet.create({
@@ -169,22 +210,75 @@ const iconStyles = StyleSheet.create({
     borderRadius: 2,
     borderWidth: 1.5,
   },
-  personWrap: {
-    alignItems: 'center',
+
+  // Gear icon
+  gearWrap: {
+    width: 22,
     height: 22,
-    gap: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  head: {
-    width: 9,
-    height: 9,
-    borderRadius: 5,
-    borderWidth: 1.5,
-  },
-  body: {
+  gearOuter: {
     width: 14,
-    height: 9,
+    height: 14,
     borderRadius: 7,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gearInner: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     borderWidth: 1.5,
-    borderBottomWidth: 0,
+  },
+  gearTooth: {
+    position: 'absolute',
+    width: 4,
+    height: 4,
+    borderRadius: 1,
+  },
+  gearToothTop:    { top: 0,    left: 9 },
+  gearToothBottom: { bottom: 0, left: 9 },
+  gearToothLeft:   { left: 0,   top: 9 },
+  gearToothRight:  { right: 0,  top: 9 },
+
+  // Simulation icon (up/down arrows)
+  simWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 20,
+  },
+  simArrowUp: {
+    alignItems: 'center',
+    height: 20,
+  },
+  simArrowDown: {
+    alignItems: 'center',
+    height: 20,
+  },
+  simArrowHead: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderBottomWidth: 5,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+  simArrowHeadDown: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderTopWidth: 5,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+  },
+  simArrowStem: {
+    width: 2,
+    flex: 1,
+    borderRadius: 1,
   },
 });

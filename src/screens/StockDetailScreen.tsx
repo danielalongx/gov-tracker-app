@@ -137,8 +137,7 @@ export function StockDetailScreen({ item, onBack }: Props) {
   }, [item.ticker])
 
   const relatedSignals: Signal[] = liveSignals ?? MOCK_SIGNALS.filter(s =>
-    s.companies?.some(c => c.ticker === item.ticker) ||
-    s.tickers?.includes(item.ticker)
+    s.affectedCompanies?.some((c: { ticker: string }) => c.ticker === item.ticker)
   ).slice(0, 5)
 
   // Use live price if available, fallback to mock

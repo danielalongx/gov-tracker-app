@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   ScrollView,
   Modal,
@@ -9,7 +10,9 @@ import {
   StatusBar,
   Alert,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { UserPreferences } from '../types';
 import { loadPreferences, savePreferences, clearPreferences } from '../utils/storage';
@@ -23,11 +26,19 @@ import RiskStep from '../components/steps/RiskStep';
 import RegionsStep from '../components/steps/RegionsStep';
 import SectorsStep from '../components/steps/SectorsStep';
 import NotificationsStep from '../components/steps/NotificationsStep';
-import LanguageStep from '../components/steps/LanguageStep';
 import { LANGUAGES } from '../utils/languages';
 import { t, getRegionLabel, getSectorLabel, TranslationKey } from '../i18n';
 import { useLanguage } from '../hooks/useLanguage';
 import { useLanguageCtx } from '../i18n/LanguageContext';
+import { API_BASE_URL } from '../api/client';
+
+// ── AsyncStorage keys ─────────────────────────────────────────────────────────
+
+const ACCOUNT_KEY = 'signal_user';
+const LAST_REFRESHED_KEY = 'signal_lastRefreshedAt';
+const NOTIF_ALERTS_KEY = 'signal_notifications_alerts';
+const NOTIF_DIGEST_KEY = 'signal_notifications_digest';
+const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 // ── Format helpers ────────────────────────────────────────────────────────────
 
@@ -54,13 +65,28 @@ const RISK_LABELS: LabelPoint[] = [
 const fmtExp  = (v: number) => `${v} · ${nearestLabel(v, EXP_LABELS)}`;
 const fmtRisk = (v: number) => `${v} · ${nearestLabel(v, RISK_LABELS)}`;
 
+function formatCooldown(seconds: number): string {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function formatLastRefreshed(iso: string | null): string {
+  if (!iso) return '从未更新';
+  const d = new Date(iso);
+  const elapsed = Date.now() - d.getTime();
+  const hours = Math.floor(elapsed / 3600000);
+  const minutes = Math.floor((elapsed % 3600000) / 60000);
+  if (hours > 0) return `${hours} 小时前`;
+  if (minutes > 0) return `${minutes} 分钟前`;
+  return '刚刚更新';
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
-/** Read-only chip row for array preferences (regions, sectors). */
 function ChipDisplay({ values, getLabel }: { values: string[]; getLabel?: (v: string) => string }) {
-  if (!values.length) {
-    return <Text style={styles.emptyValue}>—</Text>;
-  }
+  if (!values.length) return <Text style={styles.emptyValue}>—</Text>;
   return (
     <View style={styles.chipWrap}>
       {values.map((v, i) => (
@@ -72,7 +98,6 @@ function ChipDisplay({ values, getLabel }: { values: string[]; getLabel?: (v: st
   );
 }
 
-/** A card row: label + borderless edit button on top, content below. */
 function PrefBlock({
   label,
   editLabel,
@@ -103,7 +128,7 @@ function PrefBlock({
 
 // ── Edit modal types ──────────────────────────────────────────────────────────
 
-type EditTarget = 'experience' | 'risk' | 'regions' | 'sectors' | 'notifications' | 'language' | null;
+type EditTarget = 'experience' | 'risk' | 'regions' | 'sectors' | 'notifications' | null;
 
 const MODAL_TITLE_KEYS: Record<NonNullable<EditTarget>, TranslationKey> = {
   experience:    'settings_experience',
@@ -111,7 +136,6 @@ const MODAL_TITLE_KEYS: Record<NonNullable<EditTarget>, TranslationKey> = {
   regions:       'settings_regions',
   sectors:       'settings_sectors',
   notifications: 'settings_notifications',
-  language:      'settings_language',
 };
 
 // ── Main screen ───────────────────────────────────────────────────────────────
@@ -119,16 +143,145 @@ const MODAL_TITLE_KEYS: Record<NonNullable<EditTarget>, TranslationKey> = {
 export default function SettingsScreen() {
   const lang = useLanguage();
   const { setLang } = useLanguageCtx();
+
+  // ── Existing prefs state ──────────────────────────────────────────────────
   const [prefs, setPrefs]     = useState<UserPreferences | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<EditTarget>(null);
   const [showSub, setShowSub] = useState(false);
   const [draft,   setDraft]   = useState<UserPreferences | null>(null);
 
+  // ── Account ───────────────────────────────────────────────────────────────
+  const [user, setUser]               = useState<{ name: string; email: string } | null>(null);
+  const [showLoginModal, setShowLogin] = useState(false);
+  const [loginEmail, setLoginEmail]   = useState('');
+  const [loginPass, setLoginPass]     = useState('');
+
+  // ── Data refresh ──────────────────────────────────────────────────────────
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<string | null>(null);
+  const [refreshing, setRefreshing]           = useState(false);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
+  const cooldownRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ── Notification toggles ──────────────────────────────────────────────────
+  const [notifAlerts, setNotifAlerts] = useState(false);
+  const [notifDigest, setNotifDigest] = useState(false);
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  const [toast, setToast]     = useState<string | null>(null);
+  const toastRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ── Load all on mount ─────────────────────────────────────────────────────
   useEffect(() => {
     loadPreferences().then(p => { setPrefs(p); setLoading(false); });
+
+    AsyncStorage.getItem(ACCOUNT_KEY).then(raw => {
+      if (raw) setUser(JSON.parse(raw));
+    });
+
+    AsyncStorage.getItem(LAST_REFRESHED_KEY).then(val => setLastRefreshedAt(val));
+
+    AsyncStorage.multiGet([NOTIF_ALERTS_KEY, NOTIF_DIGEST_KEY]).then(pairs => {
+      setNotifAlerts(pairs[0][1] === 'true');
+      setNotifDigest(pairs[1][1] === 'true');
+    });
   }, []);
 
+  // ── Cooldown countdown ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (cooldownRef.current) clearInterval(cooldownRef.current);
+
+    const elapsed = lastRefreshedAt
+      ? Date.now() - new Date(lastRefreshedAt).getTime()
+      : TWO_HOURS_MS;
+    const remaining = Math.max(0, Math.ceil((TWO_HOURS_MS - elapsed) / 1000));
+    setCooldownSeconds(remaining);
+
+    if (remaining > 0) {
+      cooldownRef.current = setInterval(() => {
+        setCooldownSeconds(s => {
+          if (s <= 1) {
+            clearInterval(cooldownRef.current!);
+            cooldownRef.current = null;
+            return 0;
+          }
+          return s - 1;
+        });
+      }, 1000);
+    }
+
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+  }, [lastRefreshedAt]);
+
+  // ── Toast auto-dismiss ────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!toast) return;
+    if (toastRef.current) clearTimeout(toastRef.current);
+    toastRef.current = setTimeout(() => setToast(null), 2000);
+    return () => { if (toastRef.current) clearTimeout(toastRef.current); };
+  }, [toast]);
+
+  // ── Account handlers ──────────────────────────────────────────────────────
+  const handleLogin = useCallback(async () => {
+    const u = { name: 'Wayne', email: 'user@signal.app' };
+    await AsyncStorage.setItem(ACCOUNT_KEY, JSON.stringify(u));
+    setUser(u);
+    setShowLogin(false);
+    setLoginEmail('');
+    setLoginPass('');
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    Alert.alert('退出登录', '确认退出登录？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '退出', style: 'destructive',
+        onPress: async () => {
+          await AsyncStorage.removeItem(ACCOUNT_KEY);
+          setUser(null);
+        },
+      },
+    ]);
+  }, []);
+
+  // ── Language handler ──────────────────────────────────────────────────────
+  const handleLanguageSelect = useCallback(async (code: string) => {
+    setLang(code);
+    if (!prefs) return;
+    const updated = { ...prefs, language: code };
+    await savePreferences(updated);
+    setPrefs(updated);
+  }, [prefs, setLang]);
+
+  // ── Data refresh ──────────────────────────────────────────────────────────
+  const handleRefresh = useCallback(async () => {
+    if (cooldownSeconds > 0 || refreshing) return;
+    setRefreshing(true);
+    try {
+      await fetch(`${API_BASE_URL}/signals?limit=50`, { signal: AbortSignal.timeout(10000) });
+      const now = new Date().toISOString();
+      await AsyncStorage.setItem(LAST_REFRESHED_KEY, now);
+      setLastRefreshedAt(now);
+      setToast('已更新 ✓');
+    } catch {
+      setToast('更新失败，请稍后再试');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [cooldownSeconds, refreshing]);
+
+  // ── Notification handlers ─────────────────────────────────────────────────
+  const handleAlertsToggle = useCallback(async (val: boolean) => {
+    setNotifAlerts(val);
+    await AsyncStorage.setItem(NOTIF_ALERTS_KEY, val ? 'true' : 'false');
+  }, []);
+
+  const handleDigestToggle = useCallback(async (val: boolean) => {
+    setNotifDigest(val);
+    await AsyncStorage.setItem(NOTIF_DIGEST_KEY, val ? 'true' : 'false');
+  }, []);
+
+  // ── Investment pref handlers (existing) ───────────────────────────────────
   const openEdit = useCallback((target: EditTarget) => {
     if (!prefs) return;
     setDraft({ ...prefs });
@@ -139,14 +292,11 @@ export default function SettingsScreen() {
     if (!draft) return;
     await savePreferences(draft);
     setPrefs({ ...draft });
-    // Update language context immediately so UI reflects new language
-    if (draft.language) setLang(draft.language);
     setEditing(null);
-  }, [draft, setLang]);
+  }, [draft]);
 
   const cancelEdit = () => { setEditing(null); setDraft(null); };
 
-  // Guru tracking — auto-saves on chip toggle (no modal needed)
   const updateGurus = useCallback(async (newLabels: string[]) => {
     if (!prefs) return;
     const updated = { ...prefs, followedGurus: newLabels };
@@ -166,7 +316,7 @@ export default function SettingsScreen() {
       },
     ]);
 
-  // Loading state
+  // ── Loading / empty states ────────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -177,7 +327,6 @@ export default function SettingsScreen() {
     );
   }
 
-  // No preferences (reset / fresh install edge case)
   if (!prefs) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
@@ -188,6 +337,8 @@ export default function SettingsScreen() {
     );
   }
 
+  const currentLang = prefs.language ?? 'zh';
+
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.background} />
@@ -196,6 +347,57 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         <Text style={styles.pageTitle}>{t('settings_title', lang)}</Text>
+
+        {/* ── 账号 ─────────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>账号</Text>
+        <View style={styles.card}>
+          {user ? (
+            <TouchableOpacity onPress={handleLogout} style={styles.accountRow} activeOpacity={0.7}>
+              <View style={styles.accountAvatar}>
+                <Text style={styles.accountAvatarText}>{user.name[0]}</Text>
+              </View>
+              <View style={styles.accountInfo}>
+                <Text style={styles.accountName}>{user.name}</Text>
+                <Text style={styles.accountEmail}>{user.email}</Text>
+              </View>
+              <Text style={styles.logoutText}>退出登录</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={() => setShowLogin(true)} style={styles.loginRow} activeOpacity={0.7}>
+              <View style={styles.accountAvatarEmpty}>
+                <Text style={styles.accountAvatarEmptyText}>?</Text>
+              </View>
+              <Text style={styles.loginLabel}>登录 / Login</Text>
+              <Text style={styles.loginStatus}>未登录</Text>
+              <Text style={styles.rowArrow}>›</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ── 语言 ─────────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>语言</Text>
+        <View style={styles.card}>
+          {LANGUAGES.map((l, i) => (
+            <React.Fragment key={l.code}>
+              <TouchableOpacity
+                onPress={() => handleLanguageSelect(l.code)}
+                style={styles.langRow}
+                activeOpacity={0.7}
+              >
+                <View style={styles.langRowLeft}>
+                  <Text style={styles.langNative}>{l.nativeLabel}</Text>
+                  {l.nativeLabel !== l.label && (
+                    <Text style={styles.langChinese}>{l.label}</Text>
+                  )}
+                </View>
+                {currentLang === l.code && (
+                  <Text style={styles.langCheck}>✓</Text>
+                )}
+              </TouchableOpacity>
+              {i < LANGUAGES.length - 1 && <View style={styles.divider} />}
+            </React.Fragment>
+          ))}
+        </View>
 
         {/* ── 投资偏好 ─────────────────────────────────── */}
         <Text style={styles.sectionHeader}>{t('settings_section_prefs', lang)}</Text>
@@ -217,21 +419,67 @@ export default function SettingsScreen() {
           </PrefBlock>
         </View>
 
+        {/* ── 数据刷新 ─────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>数据刷新</Text>
+        <View style={styles.card}>
+          <View style={styles.refreshRow}>
+            <Text style={styles.refreshLabel}>上次更新</Text>
+            <Text style={styles.refreshValue}>{formatLastRefreshed(lastRefreshedAt)}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.refreshRow}>
+            <Text style={styles.refreshLabel}>立即刷新</Text>
+            {cooldownSeconds > 0 ? (
+              <View style={styles.cooldownBadge}>
+                <Text style={styles.cooldownText}>{formatCooldown(cooldownSeconds)} 后可刷新</Text>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={handleRefresh}
+                style={styles.refreshBtn}
+                activeOpacity={0.8}
+                disabled={refreshing}
+              >
+                {refreshing
+                  ? <ActivityIndicator size="small" color={Colors.white} />
+                  : <Text style={styles.refreshBtnText}>刷新</Text>
+                }
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         {/* ── 通知 ─────────────────────────────────────── */}
         <Text style={styles.sectionHeader}>{t('settings_section_notifications', lang)}</Text>
         <View style={styles.card}>
+          <View style={styles.toggleRow}>
+            <View>
+              <Text style={styles.toggleLabel}>信号推送</Text>
+              <Text style={styles.toggleHint}>收到新信号时推送提醒</Text>
+            </View>
+            <Switch
+              value={notifAlerts}
+              onValueChange={handleAlertsToggle}
+              trackColor={{ false: Colors.border, true: Colors.accentBlue + '80' }}
+              thumbColor={notifAlerts ? Colors.accentBlue : Colors.textSecondary}
+            />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.toggleRow}>
+            <View>
+              <Text style={styles.toggleLabel}>每日摘要</Text>
+              <Text style={styles.toggleHint}>每天推送一次信号摘要</Text>
+            </View>
+            <Switch
+              value={notifDigest}
+              onValueChange={handleDigestToggle}
+              trackColor={{ false: Colors.border, true: Colors.accentBlue + '80' }}
+              thumbColor={notifDigest ? Colors.accentBlue : Colors.textSecondary}
+            />
+          </View>
+          <View style={styles.divider} />
           <PrefBlock label={t('settings_notifications', lang)} editLabel={t('settings_edit', lang)} onEdit={() => openEdit('notifications')}>
             <Text style={styles.valueText}>{formatPushTimes(prefs.notificationTimes)}</Text>
-          </PrefBlock>
-        </View>
-
-        {/* ── 摘要语言 ─────────────────────────────────── */}
-        <Text style={styles.sectionHeader}>{t('settings_section_language_header', lang)}</Text>
-        <View style={styles.card}>
-          <PrefBlock label={t('settings_language_field', lang)} editLabel={t('settings_edit', lang)} onEdit={() => openEdit('language')}>
-            <Text style={styles.valueText}>
-              {LANGUAGES.find(l => l.code === (prefs.language ?? 'zh'))?.nativeLabel ?? '中文'}
-            </Text>
           </PrefBlock>
         </View>
 
@@ -249,14 +497,6 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* ── 其他 ─────────────────────────────────────── */}
-        <Text style={styles.sectionHeader}>{t('settings_section_other', lang)}</Text>
-        <View style={styles.card}>
-          <TouchableOpacity onPress={handleReset} style={styles.dangerRow} activeOpacity={0.7}>
-            <Text style={styles.dangerText}>{t('settings_reset', lang)}</Text>
-          </TouchableOpacity>
-        </View>
-
         {/* ── 订阅计划 ─────────────────────────────────── */}
         <Text style={styles.sectionHeader}>订阅计划</Text>
         <View style={styles.card}>
@@ -265,12 +505,91 @@ export default function SettingsScreen() {
               <Text style={styles.subTierLabel}>当前：免费版</Text>
               <Text style={styles.subTierHint}>升级 Pro 解锁自定义权重和更多股票</Text>
             </View>
-            <Text style={styles.subArrow}>›</Text>
+            <Text style={styles.rowArrow}>›</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.versionText}>{t('settings_version', lang)}</Text>
+        {/* ── 关于 ─────────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>关于</Text>
+        <View style={styles.card}>
+          <View style={styles.aboutRow}>
+            <Text style={styles.aboutLabel}>版本</Text>
+            <Text style={styles.aboutValue}>Signal v0.1.0 (Beta)</Text>
+          </View>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.aboutNavRow} activeOpacity={0.7}>
+            <Text style={styles.aboutNavLabel}>隐私政策</Text>
+            <Text style={styles.rowArrow}>›</Text>
+          </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.aboutNavRow} activeOpacity={0.7}>
+            <Text style={styles.aboutNavLabel}>使用条款</Text>
+            <Text style={styles.rowArrow}>›</Text>
+          </TouchableOpacity>
+        </View>
+        <Text style={styles.disclaimerText}>
+          ⚠️ 仅供参考，非投资建议 / 数据来源：公开监管申报（SEC 13F）或 ARK 官方披露 / 投资有风险，入市需谨慎，本平台不承担任何投资损失
+        </Text>
+
+        {/* ── 其他 ─────────────────────────────────────── */}
+        <Text style={styles.sectionHeader}>{t('settings_section_other', lang)}</Text>
+        <View style={styles.card}>
+          <TouchableOpacity onPress={handleReset} style={styles.dangerRow} activeOpacity={0.7}>
+            <Text style={styles.dangerText}>{t('settings_reset', lang)}</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.versionText}>Signal · Phase 1</Text>
       </ScrollView>
+
+      {/* ── Toast overlay ───────────────────────────── */}
+      {toast && (
+        <View style={styles.toast} pointerEvents="none">
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      )}
+
+      {/* ── Login modal ──────────────────────────────── */}
+      <Modal
+        visible={showLoginModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowLogin(false)}
+      >
+        <SafeAreaView style={styles.modalSafe} edges={['top', 'bottom']}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setShowLogin(false)} style={styles.modalAction}>
+              <Text style={styles.modalCancelText}>{t('cancel', lang)}</Text>
+            </TouchableOpacity>
+            <Text style={styles.modalTitle}>登录 / Login</Text>
+            <View style={styles.modalAction} />
+          </View>
+          <View style={styles.loginForm}>
+            <TextInput
+              style={styles.loginInput}
+              value={loginEmail}
+              onChangeText={setLoginEmail}
+              placeholder="邮箱 / Email"
+              placeholderTextColor={Colors.textSecondary}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            <TextInput
+              style={styles.loginInput}
+              value={loginPass}
+              onChangeText={setLoginPass}
+              placeholder="密码 / Password"
+              placeholderTextColor={Colors.textSecondary}
+              secureTextEntry
+            />
+            <TouchableOpacity onPress={handleLogin} style={styles.loginSubmitBtn} activeOpacity={0.8}>
+              <Text style={styles.loginSubmitText}>登录</Text>
+            </TouchableOpacity>
+            <Text style={styles.loginHint}>演示：任意输入即可登录</Text>
+          </View>
+        </SafeAreaView>
+      </Modal>
 
       {/* ── Subscription modal ───────────────────────── */}
       <Modal
@@ -282,7 +601,7 @@ export default function SettingsScreen() {
         <SubscriptionScreen onBack={() => setShowSub(false)} />
       </Modal>
 
-      {/* ── Edit modal ───────────────────────────────── */}
+      {/* ── Investment prefs edit modal ───────────────── */}
       <Modal
         visible={!!editing}
         animationType="slide"
@@ -340,13 +659,6 @@ export default function SettingsScreen() {
                   lang={lang}
                 />
               )}
-              {editing === 'language' && (
-                <LanguageStep
-                  value={draft.language ?? 'zh'}
-                  onChange={v => updateDraft({ language: v })}
-                  lang={lang}
-                />
-              )}
             </ScrollView>
           </SafeAreaView>
         )}
@@ -382,7 +694,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
 
-  // Card
+  // Card container
   card: {
     backgroundColor: Colors.surface,
     borderRadius: Radius.card,
@@ -397,7 +709,98 @@ const styles = StyleSheet.create({
     marginHorizontal: Spacing.md,
   },
 
-  // PrefBlock
+  // Account section
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+    gap: Spacing.sm,
+  },
+  accountAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.accentBlue,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountAvatarText: { fontSize: 16, fontWeight: '600', color: Colors.white },
+  accountAvatarEmpty: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accountAvatarEmptyText: { fontSize: 16, color: Colors.textSecondary },
+  accountInfo: { flex: 1 },
+  accountName: { fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
+  accountEmail: { fontSize: 12, color: Colors.textSecondary, marginTop: 1 },
+  logoutText: { fontSize: 14, color: Colors.bearish },
+  loginRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    gap: Spacing.sm,
+  },
+  loginLabel: { flex: 1, fontSize: 15, fontWeight: '500', color: Colors.textPrimary },
+  loginStatus: { fontSize: 14, color: Colors.textSecondary },
+  rowArrow: { fontSize: 20, color: Colors.textSecondary, marginLeft: 4 },
+
+  // Language section
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+  },
+  langRowLeft: { flex: 1, gap: 2 },
+  langNative: { fontSize: 15, color: Colors.textPrimary },
+  langChinese: { fontSize: 12, color: Colors.textSecondary },
+  langCheck: { fontSize: 16, color: Colors.accentBlue, fontWeight: '600' },
+
+  // Data refresh section
+  refreshRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 13,
+  },
+  refreshLabel: { fontSize: 15, color: Colors.textPrimary },
+  refreshValue: { fontSize: 14, color: Colors.textSecondary },
+  cooldownBadge: {
+    backgroundColor: Colors.border,
+    borderRadius: Radius.button,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  cooldownText: { fontSize: 13, color: Colors.textSecondary, fontWeight: '500' },
+  refreshBtn: {
+    backgroundColor: Colors.accentBlue,
+    borderRadius: Radius.button,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    minWidth: 56,
+    alignItems: 'center',
+  },
+  refreshBtnText: { fontSize: 14, color: Colors.white, fontWeight: '600' },
+
+  // Notification toggles
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+  },
+  toggleLabel: { fontSize: 15, color: Colors.textPrimary, fontWeight: '400' },
+  toggleHint: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+
+  // PrefBlock (investment prefs)
   prefBlock: {
     paddingHorizontal: Spacing.md,
     paddingVertical: 13,
@@ -415,29 +818,17 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.4,
   },
-  editBtnText: {
-    fontSize: 13,
-    color: Colors.accentBlue,
-    fontWeight: '500',
-  },
+  editBtnText: { fontSize: 13, color: Colors.accentBlue, fontWeight: '500' },
   valueText: {
     fontSize: 15,
     color: Colors.textPrimary,
     fontWeight: '400',
     lineHeight: 22,
   },
-  emptyValue: {
-    fontSize: 14,
-    color: Colors.border,
-  },
+  emptyValue: { fontSize: 14, color: Colors.border },
 
   // ChipDisplay
-  chipWrap: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingTop: 2,
-  },
+  chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingTop: 2 },
   displayChip: {
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -446,21 +837,62 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
   },
-  displayChipText: {
-    fontSize: 13,
-    color: Colors.textPrimary,
-    fontWeight: '400',
+  displayChipText: { fontSize: 13, color: Colors.textPrimary },
+
+  // About section
+  aboutRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+  },
+  aboutLabel: { fontSize: 15, color: Colors.textPrimary },
+  aboutValue: { fontSize: 14, color: Colors.textSecondary },
+  aboutNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+  },
+  aboutNavLabel: { fontSize: 15, color: Colors.textPrimary },
+  disclaimerText: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    lineHeight: 17,
+    paddingHorizontal: 2,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.sm,
   },
 
-  // Danger row
+  // Subscription row
+  subRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+  },
+  subTierLabel: { fontSize: 14, fontWeight: '500', color: Colors.textPrimary },
+  subTierHint: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
+
+  // Danger / reset
   dangerRow: {
     paddingHorizontal: Spacing.md,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  dangerText: {
-    fontSize: 15,
-    color: Colors.bearish,
+  dangerText: { fontSize: 15, color: Colors.bearish },
+
+  // Guru subtitle
+  guruSubtitle: {
+    fontSize: 11,
+    color: Colors.textSecondary,
+    fontStyle: 'italic',
+    paddingHorizontal: 2,
+    lineHeight: 16,
+    marginBottom: Spacing.xs,
   },
 
   // Footer
@@ -471,31 +903,61 @@ const styles = StyleSheet.create({
     marginTop: Spacing.xl,
   },
 
-  subRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingVertical: 4,
+  // Toast
+  toast: {
+    position: 'absolute',
+    bottom: 100,
+    left: Spacing.lg,
+    right: Spacing.lg,
+    backgroundColor: Colors.bullish,
+    borderRadius: Radius.button,
+    paddingVertical: 12,
+    paddingHorizontal: Spacing.md,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 4,
   },
-  subTierLabel: { fontSize: 14, fontWeight: '500', color: Colors.textPrimary },
-  subTierHint: { fontSize: 12, color: Colors.textSecondary, marginTop: 2 },
-  subArrow: { fontSize: 20, color: Colors.textSecondary },
-  guruSubtitle: {
-    fontSize: 11,
-    color: Colors.textSecondary,
-    fontStyle: 'italic',
-    paddingHorizontal: 2,
-    lineHeight: 16,
-    marginBottom: Spacing.xs,
-  },
+  toastText: { fontSize: 15, fontWeight: '600', color: Colors.white },
 
   // Loading / empty
-  centerWrap: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  centerWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyText: { color: Colors.textSecondary },
 
-  // Modal
+  // Login modal
+  loginForm: {
+    padding: Spacing.lg,
+    gap: Spacing.md,
+    marginTop: Spacing.md,
+  },
+  loginInput: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: Radius.card,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: Colors.textPrimary,
+  },
+  loginSubmitBtn: {
+    backgroundColor: Colors.accentBlue,
+    borderRadius: Radius.button,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: Spacing.xs,
+  },
+  loginSubmitText: { fontSize: 16, fontWeight: '600', color: Colors.white },
+  loginHint: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: Colors.textSecondary,
+    marginTop: Spacing.xs,
+  },
+
+  // Shared modal chrome
   modalSafe: { flex: 1, backgroundColor: Colors.background },
   modalHeader: {
     flexDirection: 'row',
@@ -506,22 +968,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
   },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: Colors.textPrimary,
-  },
-  modalAction: {
-    padding: 4,
-    minWidth: 48,
-  },
-  modalActionRight: {
-    alignItems: 'flex-end',
-  },
+  modalTitle: { fontSize: 16, fontWeight: '600', color: Colors.textPrimary },
+  modalAction: { padding: 4, minWidth: 48 },
+  modalActionRight: { alignItems: 'flex-end' },
   modalCancelText: { fontSize: 15, color: Colors.textSecondary },
   modalSaveText:   { fontSize: 15, color: Colors.accentBlue, fontWeight: '600' },
-  modalContent: {
-    padding: Spacing.lg,
-    paddingBottom: Spacing.xxl,
-  },
+  modalContent: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
 });
