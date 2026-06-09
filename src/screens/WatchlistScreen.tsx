@@ -109,10 +109,12 @@ function WatchlistCard({ item, onPress, onConfigure, lang }: WatchlistCardProps)
       </View>
       <View style={styles.forceFooter}>
         <Text style={styles.forceBullText}>+{force.bullish} 看多</Text>
-        <TouchableOpacity onPress={onConfigure} activeOpacity={0.7}>
+        <TouchableOpacity onPress={onConfigure} activeOpacity={0.7} style={styles.configBtn}>
           <Text style={styles.configBtnText}>{t('watchlist_weights', lang)}</Text>
         </TouchableOpacity>
-        {force.bearish > 0 && <Text style={styles.forceBearText}>-{force.bearish} 看空</Text>}
+        <Text style={styles.forceBearText}>
+          {force.bearish > 0 ? `-${force.bearish} 看空` : ''}
+        </Text>
       </View>
     </TouchableOpacity>
   );
@@ -458,6 +460,7 @@ const styles = StyleSheet.create({
   },
   forceBullText: { fontSize: 11, color: Colors.bullish, fontWeight: '500' },
   forceBearText: { fontSize: 11, color: Colors.bearish, fontWeight: '500' },
+  configBtn: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   configBtnText: { fontSize: 11, color: Colors.accentBlue, fontWeight: '500' },
 
   // Search results

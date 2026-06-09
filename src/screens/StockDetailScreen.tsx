@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, SafeAreaView, ActivityIndicator,
+  StyleSheet, ActivityIndicator,
 } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { theme } from '../theme'
 import { WatchlistItem, DimensionWeights, Signal } from '../types'
 import { loadWeights } from '../utils/watchlist'
@@ -237,7 +238,10 @@ export function StockDetailScreen({ item, onBack }: Props) {
       {showModal && (
         <DimensionWeightModal
           item={item}
-          onClose={() => setShowModal(false)}
+          onClose={() => {
+            setShowModal(false)
+            loadWeights(item.ticker).then(w => { if (w) setWeights(w) })
+          }}
           lang={lang}
         />
       )}
