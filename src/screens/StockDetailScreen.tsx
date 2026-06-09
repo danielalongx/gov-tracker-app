@@ -6,9 +6,9 @@ import {
 import { theme } from '../theme'
 import { WatchlistItem, DimensionWeights, Signal } from '../types'
 import { loadWeights, saveWeights } from '../utils/watchlist'
-import { DimensionWeightModal } from '../components/DimensionWeightModal'
+import DimensionWeightModal from '../components/DimensionWeightModal'
 import { MOCK_SIGNALS } from '../data/mockSignals'
-import { SignalCard } from '../components/SignalCard'
+import SignalCard from '../components/SignalCard'
 import { useLanguage } from '../hooks/useLanguage'
 import { getStockSnapshot, getTickerSignals, StockSnapshot } from '../api/client'
 
