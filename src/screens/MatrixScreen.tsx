@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,17 +7,81 @@ import {
   StyleSheet,
   StatusBar,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors, Spacing, Radius, CardShadow } from '../theme';
 import { MATRIX_DATA, MatrixEntry } from '../data/matrixData';
 import { StockDetailScreen } from '../screens/StockDetailScreen';
 import { WatchlistItem } from '../types';
+import { getSignals } from '../api/client';
+import { Signal } from '../types';
 
 const SCREEN_W = Dimensions.get('window').width;
 const H_PAD = Spacing.lg;       // 24
 const CARD_GAP = Spacing.sm;    // 8
 const CARD_W = (SCREEN_W - H_PAD * 2 - CARD_GAP) / 2;
+
+// ── API → matrix transform ────────────────────────────────────────────────────
+
+const MOCK_MAP = new Map<string, MatrixEntry>(MATRIX_DATA.map(e => [e.ticker, e]));
+
+function signalsToMatrix(signals: Signal[]): MatrixEntry[] {
+  const acc = new Map<string, {
+    name: string; sector: string;
+    bullish: number; bearish: number; total: number;
+    topSignal: string; topRelevance: number;
+  }>();
+
+  for (const sig of signals) {
+    for (const company of sig.affectedCompanies ?? []) {
+      if (!company.ticker) continue;
+      const mock = MOCK_MAP.get(company.ticker);
+      const entry = acc.get(company.ticker);
+      if (!entry) {
+        acc.set(company.ticker, {
+          name: company.name || mock?.name || company.ticker,
+          sector: mock?.sector || '其他',
+          bullish: company.direction === 'up' ? 1 : 0,
+          bearish: company.direction === 'down' ? 1 : 0,
+          total: 1,
+          topSignal: sig.headline,
+          topRelevance: sig.relevance ?? 0,
+        });
+      } else {
+        entry.total++;
+        if (company.direction === 'up') entry.bullish++;
+        if (company.direction === 'down') entry.bearish++;
+        if ((sig.relevance ?? 0) > entry.topRelevance) {
+          entry.topSignal = sig.headline;
+          entry.topRelevance = sig.relevance ?? 0;
+        }
+      }
+    }
+  }
+
+  if (acc.size === 0) return [];
+
+  return Array.from(acc.entries()).map(([ticker, data]) => {
+    const mock = MOCK_MAP.get(ticker);
+    const score = Math.round((data.bullish - data.bearish + data.total) / (2 * data.total) * 100);
+    const trend: MatrixEntry['trend'] =
+      data.bullish > data.bearish ? 'up' : data.bearish > data.bullish ? 'down' : 'flat';
+    return {
+      ticker,
+      name: data.name,
+      sector: data.sector,
+      score,
+      signalCount: data.total,
+      trend,
+      topSignal: data.topSignal,
+      mockPrice: mock?.mockPrice ?? 0,
+      mockChange: mock?.mockChange ?? 0,
+      mockPE: mock?.mockPE ?? 0,
+      mockMarketCap: mock?.mockMarketCap ?? '--',
+    };
+  });
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -128,10 +192,22 @@ function MatrixCard({
 
 export default function MatrixScreen() {
   const [selected, setSelected] = useState<MatrixEntry | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [apiEntries, setApiEntries] = useState<MatrixEntry[] | null>(null);
+
+  useEffect(() => {
+    getSignals({ limit: 100 })
+      .then(signals => {
+        const entries = signalsToMatrix(signals);
+        setApiEntries(entries.length > 0 ? entries : null);
+      })
+      .catch(() => setApiEntries(null))
+      .finally(() => setLoading(false));
+  }, []);
 
   const sorted = useMemo(
-    () => [...MATRIX_DATA].sort((a, b) => b.score - a.score),
-    [],
+    () => [...(apiEntries ?? MATRIX_DATA)].sort((a, b) => b.score - a.score),
+    [apiEntries],
   );
 
   if (selected) {
@@ -167,21 +243,25 @@ export default function MatrixScreen() {
         ))}
       </View>
 
-      <FlatList
-        data={sorted}
-        keyExtractor={item => item.ticker}
-        numColumns={2}
-        columnWrapperStyle={styles.columnWrapper}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item, index }) => (
-          <MatrixCard
-            entry={item}
-            rank={index + 1}
-            onPress={() => setSelected(item)}
-          />
-        )}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading ? (
+        <ActivityIndicator style={styles.loader} size="large" color="#2563EB" />
+      ) : (
+        <FlatList
+          data={sorted}
+          keyExtractor={item => item.ticker}
+          numColumns={2}
+          columnWrapperStyle={styles.columnWrapper}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item, index }) => (
+            <MatrixCard
+              entry={item}
+              rank={index + 1}
+              onPress={() => setSelected(item)}
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -190,6 +270,7 @@ export default function MatrixScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.background },
+  loader: { flex: 1, justifyContent: 'center' },
 
   header: {
     paddingHorizontal: H_PAD,

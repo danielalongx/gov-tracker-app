@@ -1,6 +1,10 @@
 import { Signal, Sentiment, Direction } from '../types';
 
-export const API_BASE_URL = 'http://localhost:8000';
+// Replace with your Railway URL after deployment
+// e.g. 'https://gov-tracker-production.up.railway.app'
+const RAILWAY_URL = ''
+
+export const API_BASE_URL = RAILWAY_URL || 'http://localhost:8000'
 
 // ── Raw API shapes ──────────────────────────────────────────────────────────
 
@@ -215,6 +219,25 @@ export async function syncWatchlistItem(
   } catch {
     return false;
   }
+}
+
+export interface CompanyProfile {
+  ticker: string
+  company_name: string
+  sector: string
+  listed_market: string
+  pricing_currency: string
+  geo_exposure: Record<string, number>
+  revenue_segments: Record<string, number>
+  characteristics: Record<string, boolean | number>
+}
+
+export async function getCompanyProfile(ticker: string): Promise<CompanyProfile | null> {
+  try {
+    const r = await fetch(`${API_BASE_URL}/company/${ticker}/profile`, { signal: AbortSignal.timeout(5000) })
+    if (!r.ok) return null
+    return await r.json()
+  } catch { return null }
 }
 
 export async function syncWeights(

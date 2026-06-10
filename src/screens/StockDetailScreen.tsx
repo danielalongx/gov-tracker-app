@@ -11,7 +11,7 @@ import DimensionWeightModal from '../components/DimensionWeightModal'
 import { MOCK_SIGNALS } from '../data/mockSignals'
 import SignalCard from '../components/SignalCard'
 import { useLanguage } from '../hooks/useLanguage'
-import { getStockSnapshot, getTickerSignals, StockSnapshot } from '../api/client'
+import { getStockSnapshot, getTickerSignals, StockSnapshot, getCompanyProfile, CompanyProfile } from '../api/client'
 
 interface Props {
   item: WatchlistItem
@@ -121,6 +121,7 @@ export function StockDetailScreen({ item, onBack }: Props) {
   const [showModal, setShowModal] = useState(false)
   const [liveSnapshot, setLiveSnapshot] = useState<StockSnapshot | null>(null)
   const [liveSignals, setLiveSignals] = useState<Signal[] | null>(null)
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null)
 
   useEffect(() => {
     loadWeights(item.ticker).then(w => { if (w) setWeights(w) })
@@ -130,9 +131,11 @@ export function StockDetailScreen({ item, onBack }: Props) {
     Promise.all([
       getStockSnapshot(item.ticker),
       getTickerSignals(item.ticker),
-    ]).then(([snap, sigs]) => {
+      getCompanyProfile(item.ticker),
+    ]).then(([snap, sigs, profile]) => {
       setLiveSnapshot(snap)
       setLiveSignals(sigs.length > 0 ? sigs : null)
+      setCompanyProfile(profile)
     }).catch(() => {})
   }, [item.ticker])
 
@@ -194,6 +197,24 @@ export function StockDetailScreen({ item, onBack }: Props) {
                 <View style={styles.metric}>
                   <Text style={styles.metricLabel}>52W高</Text>
                   <Text style={styles.metricValue}>${liveSnapshot.week52_high.toFixed(0)}</Text>
+                </View>
+              </>
+            )}
+            {companyProfile?.listed_market && !['NYSE', 'NASDAQ'].includes(companyProfile.listed_market) && (
+              <>
+                <View style={styles.metricDivider} />
+                <View style={styles.metric}>
+                  <Text style={styles.metricLabel}>交易所</Text>
+                  <Text style={styles.metricValue}>{companyProfile.listed_market}</Text>
+                </View>
+              </>
+            )}
+            {companyProfile?.pricing_currency && companyProfile.pricing_currency !== 'USD' && (
+              <>
+                <View style={styles.metricDivider} />
+                <View style={styles.metric}>
+                  <Text style={styles.metricLabel}>货币</Text>
+                  <Text style={styles.metricValue}>{companyProfile.pricing_currency}</Text>
                 </View>
               </>
             )}
